@@ -1,0 +1,7 @@
+# aarch64 Linux build tuned for Cortex-A53 (e.g. TrimUI Brick / Smart Pro)
+set(ZIG_TARGET aarch64-linux-gnu.2.17 )
+set(ZIG_EXTRA_FLAGS "-mcpu=cortex_a53")
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_PROCESSOR aarch64)
+
+include( "${CMAKE_CURRENT_LIST_DIR}/zig.toolchain.cmake" )
