@@ -958,13 +958,26 @@ void retro_run(void)
         }
     }
 
-    co_switch(bgd_thread);
+    // Run several BennuGD frames per libretro frame when the game asks for a
+    // higher frame rate than the frontend (e.g. SoRR's "skip" fast-forward),
+    // instead of changing the frontend's frame rate. Keeps audio pacing stable.
+    int bgd_frames = 1;
+    if (last_av_info.timing.fps > 0 && fps_value > last_av_info.timing.fps)
+    {
+        bgd_frames = (int)((fps_value + last_av_info.timing.fps / 2) / last_av_info.timing.fps);
+        if (bgd_frames < 1) bgd_frames = 1;
+        if (bgd_frames > 8) bgd_frames = 8;
+    }
+    for (int i = 0; i < bgd_frames && !bgd_finished; ++i)
+    {
+        co_switch(bgd_thread);
+    }
     SDL_Surface* s = SDL_GetVideoSurface();
     if (video_cb && s)
     {
         int sample_rate = sdl_libretro_get_sample_rate();
 
-        if (s->w != last_av_info.geometry.base_width ||  s->h != last_av_info.geometry.base_height || fps_value>last_av_info.timing.fps ||
+        if (s->w != last_av_info.geometry.base_width ||  s->h != last_av_info.geometry.base_height ||
             last_av_info.timing.sample_rate != sample_rate)
         {
             last_av_info.geometry.base_width = s->w;
@@ -980,12 +993,6 @@ void retro_run(void)
             if (s->h > last_av_info.geometry.max_height)
             {
                 last_av_info.geometry.max_height = s->h;
-                submit_new_avinfo = true;
-            }
-
-            if (fps_value>last_av_info.timing.fps)
-            {
-                last_av_info.timing.fps = fps_value;
                 submit_new_avinfo = true;
             }
 
@@ -1005,7 +1012,9 @@ void retro_run(void)
             }
         }
 
-        if (fps_value != last_av_info.timing.fps || force_frame_limiter)
+        // Higher game fps is handled by running extra frames per retro_run, so only
+        // limit internally when the game wants fewer fps than the frontend provides.
+        if (fps_value < last_av_info.timing.fps || (force_frame_limiter && fps_value <= last_av_info.timing.fps))
         {
             retro_enable_frame_limiter = true;
         }
